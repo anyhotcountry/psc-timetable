@@ -1,8 +1,15 @@
+from datetime import datetime
+from dateutil import tz
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import os
 from ics import Calendar, Event
+from flask import Flask, redirect
+
+DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+
+app = Flask(__name__)
 
 def login(session):
     base_url = os.getenv("BASE_URL")
@@ -21,7 +28,7 @@ def login(session):
     response.raise_for_status()
     return session
 
-def scrape_table(session):
+def get_timetable(session):
     c = Calendar()
     timetable_url = os.getenv("TIMETABLE_URL")
 
@@ -31,14 +38,24 @@ def scrape_table(session):
     for x in periods:
         e = Event()
         e.name = x.find("span", {"class": "title"}).get_text()
-        e.begin = x.get("data-start")
-        e.end = x.get("data-end")
+        start_time = datetime.strptime(x.get("data-start"), DATE_FORMAT).replace(tzinfo=tz.gettz('Europe/London'))
+        end_time = datetime.strptime(x.get("data-end"), DATE_FORMAT).replace(tzinfo=tz.gettz('Europe/London'))
+        e.begin = start_time.astimezone(tz.tzutc()).strftime(DATE_FORMAT)
+        e.end = end_time.astimezone(tz.tzutc()).strftime(DATE_FORMAT)
         c.events.add(e)
-    with open("timetable.ics", "w") as f:
-        f.writelines(c.serialize_iter())
+    return c.serialize()
+
+@app.route("/")
+def home():
+    return redirect("/timetable.ics")
+
+@app.route('/timetable.ics')
+def timetable():
+    session = requests.Session()
+    login(session)
+    calendar_data = get_timetable(session)
+    return calendar_data, {'Content-Type': 'text/calendar'}
 
 if __name__ == "__main__":
     load_dotenv()
-    session = requests.Session()
-    login(session)
-    scrape_table(session)
+    app.run(host="0.0.0.0", port=5000, debug=True)

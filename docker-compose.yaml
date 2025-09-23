@@ -1,0 +1,12 @@
+services:
+  app:
+    image: anyhotcountry/psc-timetable:latest
+    environment:
+      - USERNAME=parent@example.com
+      - PASSWORD=password
+      - BASE_URL=https://parents.psc.ac.uk/
+      - LOGIN_URL=https://parents.psc.ac.uk/login
+      - TIMETABLE_URL=https://parents.psc.ac.uk/timetable
+    ports:
+      - 5000:5000
+    restart: unless-stopped
